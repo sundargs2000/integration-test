@@ -3,11 +3,68 @@ on:
   repository_dispatch:
     type: "K8sDeployActionPR"
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
+jobs: 
+  run-integration-test-on-pr:
+    name: Validate release and master branch
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    if: github.event.client_payload.tobranch == 'releases/v1' || github.event.client_payload.tobranch == 'master'
+    runs-on: ${{ matrix.os }}
 
     steps:
-    - name: Setting environment
-      run: |
-        echo hello
+      - name: test
+        run: |
+          echo ${{github.event.client_payload.repository}} 
+          
+#       - uses: actions/checkout@v2
+
+#       - uses: actions/setup-ruby@v1
+#         name: Install ruby
+#         with:
+#           ruby-version: '2.7'
+
+#       - name: Marking status as in-progress on PR
+#         run: |
+#           ruby postStatus.rb ${{github.event.client_payload.repository}} ${{github.event.client_payload.commit}} ${{secrets.token}} ${{job.status}} ${{github.run_id}} ${{matrix.os}} true
+#       - uses: Azure/aks-set-context@v1
+#         name: Set AKS context
+#         with:
+#           creds: '${{ secrets.AZURE_CREDENTIALS_K8S }}'
+#           cluster-name: ${{ secrets.CLUSTER_NAME }}
+#           resource-group: ${{ secrets.RESOURCE_GROUP }}
+
+#       - uses: actions/checkout@v2
+#         name: Checkout from PR branch
+#         with: 
+#             repository: Azure/k8s-create-secret
+#             ref: ${{ github.event.client_payload.frombranch }}
+#             path: 'k8s-create-secret'
+
+#       - name: Building latest changes
+#         if: github.event.client_payload.tobranch == 'master'
+#         run: |
+#           cd k8s-create-secret
+#           npm install --prod
+      
+#       - uses: azure/setup-kubectl@v1
+#         name: Install kubectl
+
+#       - name: Executing latest changes on ${{ matrix.os }}
+#         uses: ./k8s-create-secret
+#         with:
+#           container-registry-url: ${{ secrets.REGISTRY_SERVER }}
+#           container-registry-username: ${{ secrets.REGISTRY_USERNAME }}
+#           container-registry-password: ${{ secrets.REGISTRY_PASSWORD }}
+#           secret-name: ${{ matrix.os }}
+
+#       - name: validate created secret on ${{ matrix.os }}
+#         run: |
+#           kubectl get secrets ${{ matrix.os }}
+#           kubectl delete secret ${{ matrix.os }}
+          
+#       - if: ${{ always() }}
+#         name: Posting back to PR
+#         run: |
+#           echo ${{job.status}}
+#           ruby postStatus.rb ${{github.event.client_payload.repository}} ${{github.event.client_payload.commit}} ${{secrets.token}} ${{job.status}} ${{github.run_id}} ${{matrix.os}} false
