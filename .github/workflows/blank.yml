@@ -1,0 +1,13 @@
+name: Integration test for k8s-deploy-action
+on:
+  repository_dispatch:
+    type: "K8sDeployActionPR"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Setting environment
+      run: |
+        echo hello
