@@ -11,52 +11,59 @@ jobs:
         os: [windows-latest, ubuntu-latest, macos-latest]
     if: github.event.client_payload.tobranch == 'releases/v1' || github.event.client_payload.tobranch == 'master'
     runs-on: ${{ matrix.os }}
-
     steps:
-      - name: test
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-ruby@v1
+        name: Install ruby
+        with:
+          ruby-version: '2.7'
+
+      - name: Marking status as in-progress on PR
         run: |
-          echo ${{github.event.client_payload.repository}} 
-          
-#       - uses: actions/checkout@v2
+          ruby postStatus.rb ${{github.event.client_payload.repository}} ${{github.event.client_payload.commit}} ${{secrets.token}} ${{job.status}} ${{github.run_id}} ${{matrix.os}} true
+      - uses: Azure/aks-set-context@v1
+        name: Set AKS context
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }} 
+        id: setcontext
+        
+      - uses: actions/checkout@v2
+        name: Checkout from PR branch
+        with: 
+            repository: sundargs2000/k8s-deploy
+            ref: ${{ github.event.client_payload.frombranch }}
+            path: 'k8s-deploy'
+            
+      - uses: actions/checkout@v2
+        name: Checkout from manifests
+        with: 
+            path: 'manifests'
 
-#       - uses: actions/setup-ruby@v1
-#         name: Install ruby
-#         with:
-#           ruby-version: '2.7'
+      - name: Building latest changes
+        if: github.event.client_payload.tobranch == 'master'
+        run: |
+          cd k8s-deploy
+          npm install --prod
+            
+      - uses: azure/setup-kubectl@v1
+        name: Install kubectl
+        
+      - name: created test namespace on ${{ matrix.os }}
+        run: |
+          kubectl create namespace integration-test-k8s-deploy
 
-#       - name: Marking status as in-progress on PR
-#         run: |
-#           ruby postStatus.rb ${{github.event.client_payload.repository}} ${{github.event.client_payload.commit}} ${{secrets.token}} ${{job.status}} ${{github.run_id}} ${{matrix.os}} true
-#       - uses: Azure/aks-set-context@v1
-#         name: Set AKS context
-#         with:
-#           creds: '${{ secrets.AZURE_CREDENTIALS_K8S }}'
-#           cluster-name: ${{ secrets.CLUSTER_NAME }}
-#           resource-group: ${{ secrets.RESOURCE_GROUP }}
-
-#       - uses: actions/checkout@v2
-#         name: Checkout from PR branch
-#         with: 
-#             repository: Azure/k8s-create-secret
-#             ref: ${{ github.event.client_payload.frombranch }}
-#             path: 'k8s-create-secret'
-
-#       - name: Building latest changes
-#         if: github.event.client_payload.tobranch == 'master'
-#         run: |
-#           cd k8s-create-secret
-#           npm install --prod
-      
-#       - uses: azure/setup-kubectl@v1
-#         name: Install kubectl
-
-#       - name: Executing latest changes on ${{ matrix.os }}
-#         uses: ./k8s-create-secret
-#         with:
-#           container-registry-url: ${{ secrets.REGISTRY_SERVER }}
-#           container-registry-username: ${{ secrets.REGISTRY_USERNAME }}
-#           container-registry-password: ${{ secrets.REGISTRY_PASSWORD }}
-#           secret-name: ${{ matrix.os }}
+      - name: Executing latest changes on ${{ matrix.os }}
+        uses: ./k8s-deploy
+        with:
+          namespace: integration-test-k8s-deploy
+          images: tsugunt/sample:v22
+          manifests: |
+            manifests/service-test.yml
+          strategy: blue-green
+          route-method: service
+          action: deploy
 
 #       - name: validate created secret on ${{ matrix.os }}
 #         run: |
